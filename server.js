@@ -34,12 +34,12 @@ const transporter = nodemailer.createTransport({
   secure: true,
   auth: {
     user: "dclercqpeter@gmail.com",
-    pass: "teiqrmkfdfotsiwx"
+    pass: process.env.NODEMAILER_GMAIL_PASS
   }
 })
 
 fastify.register(cors, {
-  origin: "http://localhost:5173", methods: ["GET", "POST", "PUT", "DELETE"]
+  origin: process.env.FRONTEND_BASE_URL, methods: ["GET", "POST", "PUT", "DELETE"]
 })
 fastify.register(FastifySwagger, {
   swagger: {
@@ -193,7 +193,7 @@ fastify.post("/send-mail", async (request, reply) => {
     from: "dclercqpeter@gmail.com",
     to,
     subject,
-    html: `< p > Er is een nieuwe keuringsaanvraag binnengekomen voor ${type.replace('/', ' + ')}</p > <p>Bekijk de details van deze keuring via de volgende link: <a href=${link}>${link}</a></p>`
+    html: `<p> Er is een nieuwe keuringsaanvraag binnengekomen voor ${type.replace('/', ' + ')}</p> <p>Bekijk de details van deze keuring via de volgende link: <a href=${link}>${link}</a></p>`
   })
 
   reply.send({ message: "Email sent successfully" })
@@ -206,7 +206,7 @@ fastify.post("/notify-updated-date-visit", async (request, reply) => {
     from: "dclercqpeter@gmail.com",
     to,
     subject,
-    html: `< p > Beste, </p > <p>De volgende keuring in ons systeem is gepland voor <b>${date}</b>. <ul><li>Type: ${type.join(" & ")}</li><li>Locatie: ${location}</li><li>Klant: ${klant}</li></ul><p>Neem contact met me op als u vragen hebt over de planning.</p>`
+    html: `<p>Beste, </p><p>De volgende keuring in ons systeem is gepland voor <b>${date}</b>. <ul><li>Type: ${type.join(" & ")}</li><li>Locatie: ${location}</li><li>Klant: ${klant}</li></ul><p>Neem contact met me op als u vragen hebt over de planning.</p>`
   })
 })
 
