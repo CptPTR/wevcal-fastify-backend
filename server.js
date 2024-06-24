@@ -122,9 +122,6 @@ fastify.put("/calendars/:username/events/:eventId", async (request, reply) => {
   const { username, eventId } = request.params
   const { eventStart, eventEnd } = request.body
 
-  console.log("edit event to (start): ", eventStart)
-  console.log("edit event to (end): ", eventEnd)
-
   const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
 
   if (error) {
