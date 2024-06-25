@@ -29,12 +29,12 @@ const calendar = google.calendar({ version: "v3", auth });
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
-  host: "smtp.gmail.com",
-  port: 465,
+  host: SMTP_HOST,
+  port: SMTP_PORT,
   secure: true,
   auth: {
-    user: "dclercqpeter@gmail.com",
-    pass: process.env.NODEMAILER_GMAIL_PASS
+    user: process.env.SMTP_AUTH_USER,
+    pass: process.env.SMTP_AUTH_PASS
   }
 })
 
