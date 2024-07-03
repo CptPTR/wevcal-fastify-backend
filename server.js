@@ -208,7 +208,7 @@ fastify.post("/notify-updated-date-visit", async (request, reply) => {
 })
 
 try {
-  await fastify.listen({ port: PORT });
+  await fastify.listen({ host: "0.0.0.0", port: PORT });
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
