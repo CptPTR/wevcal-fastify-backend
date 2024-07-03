@@ -29,8 +29,8 @@ const calendar = google.calendar({ version: "v3", auth });
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
-  host: SMTP_HOST,
-  port: SMTP_PORT,
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
   secure: true,
   auth: {
     user: process.env.SMTP_AUTH_USER,
@@ -187,7 +187,7 @@ fastify.post("/send-mail", async (request, reply) => {
   const { to, subject, type, link } = request.body
 
   await transporter.sendMail({
-    from: "dclercqpeter@gmail.com",
+    from: process.env.SMTP_AUTH_USER,
     to,
     subject,
     html: `<p> Er is een nieuwe keuringsaanvraag binnengekomen voor ${type.replace('/', ' + ')}</p> <p>Bekijk de details van deze keuring via de volgende link: <a href=${link}>${link}</a></p>`
@@ -200,7 +200,7 @@ fastify.post("/notify-updated-date-visit", async (request, reply) => {
   const { to, subject, location, klant, date, type } = request.body
 
   await transporter.sendMail({
-    from: "dclercqpeter@gmail.com",
+    from: process.env.SMTP_AUTH_USER,
     to,
     subject,
     html: `<p>Beste, </p><p>De volgende keuring in ons systeem is gepland voor <b>${date}</b>. <ul><li>Type: ${type.join(" & ")}</li><li>Locatie: ${location}</li><li>Klant: ${klant}</li></ul><p>Neem contact met me op als u vragen hebt over de planning.</p>`
