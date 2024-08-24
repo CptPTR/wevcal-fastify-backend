@@ -38,9 +38,7 @@ const transporter = nodemailer.createTransport({
   }
 })
 
-fastify.register(cors, {
-  origin: process.env.FRONTEND_BASE_URL, methods: ["GET", "POST", "PUT", "DELETE"]
-})
+fastify.register(cors)
 fastify.register(FastifySwagger, {
   swagger: {
     info: {
