@@ -194,6 +194,36 @@ fastify.post("/send-mail", async (request, reply) => {
   reply.send({ message: "Email sent successfully" })
 })
 
+fastify.post("/notify-certificate-available", async (request, reply) => {
+  const { to, subject, location, klant, type, link } = request.body
+
+  await transporter.sendMail({
+    from: process.env.SMTP_AUTH_USER,
+    to,
+    subject,
+    html: `
+      <p>Beste, </p>
+      <p>Er is een attest beschikbaar voor de volgende keuring</p>
+      <ul>
+        <li>
+          <b>Type:</b> ${type}
+        </li>
+        <li>
+          <b>Adres:</b> ${location}
+        </li>
+        <li>
+          <b>Klant:</b> ${klant}
+        </li>
+      </ul>
+      <p>Klik op de onderstaande link om het attest te raadplegen:</p>
+      <a href="${link}">${link}</a>
+      <p>Indien er een attest ontbreekt, zal dit spoedig beschikbaar worden gesteld.</p>
+      <p>Met vriendelijke groet,</p>
+      <p>Het WoonExpertVlaanderen team</p>
+    `
+  })
+})
+
 fastify.post("/notify-updated-date-visit", async (request, reply) => {
   const { to, subject, location, klant, date, type } = request.body
 
