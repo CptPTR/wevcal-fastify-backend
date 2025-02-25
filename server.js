@@ -117,45 +117,55 @@ fastify.post("/calendars/:username/events", async (request, reply) => {
 });
 
 fastify.put("/calendars/:username/events/:eventId", async (request, reply) => {
-  const { username, eventId } = request.params
-  const { eventStart, eventEnd } = request.body
+  try {
 
-  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
+    const { username, eventId } = request.params
+    const { eventStart, eventEnd } = request.body
 
-  if (error) {
-    reply.code(500).send({ error: "Datebase error" })
-  }
+    const { data, error } = await supabase
+      .from("gebruikers")
+      .select("*")
+      .eq("gebruikersnaam", username)
 
-  if (!data || data.length === 0) {
-    reply.code(404).send({ error: `User ${username} not found` })
-  }
-
-  const calendarId = data[0].email;
-
-  const { data: retrievedEvent } = await calendar.events.get({
-    calendarId,
-    eventId
-  })
-
-  const updatedEvent = {
-    ...retrievedEvent,
-    start: {
-      dateTime: eventStart,
-      timeZone: "Europe/Brussels"
-    },
-    end: {
-      dateTime: eventEnd,
-      timeZone: "Europe/Brussels"
+    if (error) {
+      reply.code(500).send({ error: "Datebase error" })
     }
+
+    if (!data || data.length === 0) {
+      reply.code(404).send({ error: `User ${username} not found` })
+    }
+
+    const calendarId = data[0].email;
+
+    const { data: retrievedEvent } = await calendar.events.get({
+      calendarId,
+      eventId
+    })
+
+    const updatedEvent = {
+      ...retrievedEvent,
+      sequence: (retrievedEvent.sequence || 0) + 1,
+      start: {
+        dateTime: eventStart,
+        timeZone: "Europe/Brussels"
+      },
+      end: {
+        dateTime: eventEnd,
+        timeZone: "Europe/Brussels"
+      }
+    }
+
+    const res = await calendar.events.update({
+      calendarId,
+      eventId,
+      requestBody: updatedEvent
+    })
+
+    reply.send(res.data)
+  } catch (err) {
+    console.error("Unable to update event: ", err)
+    reply.code(500).send({ error: "Internal server error" })
   }
-
-  const res = await calendar.events.update({
-    calendarId,
-    eventId,
-    requestBody: updatedEvent
-  })
-
-  reply.send(res.data)
 })
 
 fastify.delete("/calendars/:username/events/:eventId", async (request, reply) => {
