@@ -117,54 +117,45 @@ fastify.post("/calendars/:username/events", async (request, reply) => {
 });
 
 fastify.put("/calendars/:username/events/:eventId", async (request, reply) => {
-  try {
-    const { username, eventId } = request.params
-    const { eventStart, eventEnd } = request.body
+  const { username, eventId } = request.params
+  const { eventStart, eventEnd } = request.body
 
-    const { data, error } = await supabase
-      .from("gebruikers")
-      .select("*")
-      .eq("gebruikersnaam", username)
+  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
 
-    if (error) {
-      reply.code(500).send({ error: "Datebase error" })
-    }
-
-    if (!data || data.length === 0) {
-      reply.code(404).send({ error: `User ${username} not found` })
-    }
-
-    const calendarId = data[0].email;
-
-    const { data: retrievedEvent } = await calendar.events.get({
-      calendarId,
-      eventId
-    })
-
-    const updatedEvent = {
-      ...retrievedEvent,
-      sequence: (retrievedEvent.sequence || 0) + 1,
-      start: {
-        dateTime: eventStart,
-        timeZone: "Europe/Brussels"
-      },
-      end: {
-        dateTime: eventEnd,
-        timeZone: "Europe/Brussels"
-      }
-    }
-
-    const res = await calendar.events.update({
-      calendarId,
-      eventId,
-      requestBody: updatedEvent
-    })
-
-    reply.send(res.data)
-  } catch (err) {
-    console.error("Error updating event: ", err)
-    reply.code(500).send({ error: "Internal server error" })
+  if (error) {
+    reply.code(500).send({ error: "Datebase error" })
   }
+
+  if (!data || data.length === 0) {
+    reply.code(404).send({ error: `User ${username} not found` })
+  }
+
+  const calendarId = data[0].email;
+
+  const { data: retrievedEvent } = await calendar.events.get({
+    calendarId,
+    eventId
+  })
+
+  const updatedEvent = {
+    ...retrievedEvent,
+    start: {
+      dateTime: eventStart,
+      timeZone: "Europe/Brussels"
+    },
+    end: {
+      dateTime: eventEnd,
+      timeZone: "Europe/Brussels"
+    }
+  }
+
+  const res = await calendar.events.update({
+    calendarId,
+    eventId,
+    requestBody: updatedEvent
+  })
+
+  reply.send(res.data)
 })
 
 fastify.delete("/calendars/:username/events/:eventId", async (request, reply) => {
@@ -230,12 +221,6 @@ fastify.post("/notify-certificate-available", async (request, reply) => {
       <p>Met vriendelijke groet,</p>
       <p>Het WoonExpertVlaanderen team</p>
     `
-  }, (error, info) => {
-    if (error) {
-      console.error("Error sending email: ", error)
-      return;
-    }
-    console.log("Email sent successfully: ", info.response)
   })
 })
 
