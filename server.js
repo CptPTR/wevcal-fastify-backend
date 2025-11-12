@@ -28,7 +28,6 @@ const auth = new google.auth.JWT({
 const calendar = google.calendar({ version: "v3", auth });
 
 const transporter = nodemailer.createTransport({
-  service: "Gmail",
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
   secure: true,
@@ -52,93 +51,77 @@ fastify.register(FastifySwaggerUi, {
 
 const supabase = createClient(process.env.APP_SUPABASE_URL, process.env.APP_SUPABASE_ANON_KEY)
 
+const getUser = async (username) => {
+  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username).single()
+
+  if (error) throw new Error("Database error")
+  if (!data) throw new Error(`User ${username} not found`)
+
+  return data
+}
+
 fastify.get("/calendars/:username/events", async (request, reply) => {
-  const { username } = request.params;
+  try {
 
-  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
+    const { username } = request.params;
+    const user = await getUser(username);
 
-  if (error) {
-    reply.code(500).send({ error: "Datebase error" })
+    const res = await calendar.events.list(
+      {
+        calendarId: user.email,
+        maxResults: 3,
+        singleEvents: true,
+        orderBy: "startTime",
+      }
+    )
+
+    return res.data.items;
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
   }
-
-  if (!data || data.length === 0) {
-    reply.code(404).send({ error: `User ${username} not found` })
-  }
-
-  const calendarId = data[0].email;
-
-  const res = await calendar.events.list(
-    {
-      calendarId,
-      maxResults: 3,
-      singleEvents: true,
-      orderBy: "startTime",
-    }
-  )
-  reply.send({ events: res.data.items })
 });
 
 fastify.post("/calendars/:username/events", async (request, reply) => {
-  const { username } = request.params;
-  const { eventSummary, eventLocation, eventDescription, eventStart, eventEnd } = request.body;
+  try {
 
-  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
+    const { username } = request.params;
+    const { eventSummary, eventLocation, eventDescription, eventStart, eventEnd } = request.body;
+    const user = await getUser(username);
 
-  if (error) {
-    reply.code(500).send({ error: "Datebase error" })
+    const res = await calendar.events.insert(
+      {
+        calendarId: user.email,
+        requestBody: {
+          summary: eventSummary,
+          location: eventLocation,
+          description: eventDescription,
+          start: {
+            dateTime: eventStart,
+            timeZone: "Europe/Brussels",
+          },
+          end: {
+            dateTime: eventEnd,
+            timeZone: "Europe/Brussels",
+          },
+        },
+      }
+    );
+
+    return { eventId: res.data.id }
+  } catch (err) {
+    return reply.code(500).send({ error: err.message });
   }
 
-  if (!data || data.length === 0) {
-    reply.code(404).send({ error: `User ${username} not found` })
-  }
-
-  const calendarId = data[0].email;
-
-  const res = await calendar.events.insert(
-    {
-      calendarId,
-      requestBody: {
-        summary: eventSummary,
-        location: eventLocation,
-        description: eventDescription,
-        start: {
-          dateTime: eventStart,
-          timeZone: "Europe/Brussels",
-        },
-        end: {
-          dateTime: eventEnd,
-          timeZone: "Europe/Brussels",
-        },
-      },
-    }
-  );
-
-  reply.send(res.data.id)
 });
 
 fastify.put("/calendars/:username/events/:eventId", async (request, reply) => {
   try {
-
     const { username, eventId } = request.params
     const { eventStart, eventEnd } = request.body
-
-    const { data, error } = await supabase
-      .from("gebruikers")
-      .select("*")
-      .eq("gebruikersnaam", username)
-
-    if (error) {
-      reply.code(500).send({ error: "Datebase error" })
-    }
-
-    if (!data || data.length === 0) {
-      reply.code(404).send({ error: `User ${username} not found` })
-    }
-
-    const calendarId = data[0].email;
+    const user = await getUser(username)
 
     const { data: retrievedEvent } = await calendar.events.get({
-      calendarId,
+      calendarId: user.email,
       eventId
     })
 
@@ -156,93 +139,104 @@ fastify.put("/calendars/:username/events/:eventId", async (request, reply) => {
     }
 
     const res = await calendar.events.update({
-      calendarId,
+      calendarId: user.email,
       eventId,
       requestBody: updatedEvent
     })
 
-    reply.send(res.data)
+    return res.data
   } catch (err) {
-    console.error("Unable to update event: ", err)
-    reply.code(500).send({ error: "Internal server error" })
+    return reply.code(500).send({ error: err.message })
   }
 })
 
 fastify.delete("/calendars/:username/events/:eventId", async (request, reply) => {
-  const { username, eventId } = request.params
+  try {
 
-  const { data, error } = await supabase.from("gebruikers").select("*").eq("gebruikersnaam", username)
+    const { username, eventId } = request.params
+    const user = await getUser(username)
 
-  if (error) {
-    reply.code(500).send({ error: "Datebase error" })
+    const res = await calendar.events.delete({
+      calendarId: user.email,
+      eventId
+    })
+
+    return { success: true }
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
   }
-
-  if (!data || data.length === 0) {
-    reply.code(404).send({ error: `User ${username} not found` })
-  }
-
-  const calendarId = data[0].email;
-
-  const res = await calendar.events.delete({
-    calendarId,
-    eventId
-  })
-
-  reply.send(res)
 })
 
 fastify.post("/send-mail", async (request, reply) => {
-  const { to, subject, type, link } = request.body
+  try {
+    const { to, subject, type, link } = request.body
 
-  await transporter.sendMail({
-    from: process.env.SMTP_AUTH_USER,
-    to,
-    subject,
-    html: `<p> Er is een nieuwe keuringsaanvraag binnengekomen voor ${type.replace('/', ' + ')}</p> <p>Bekijk de details van deze keuring via de volgende link: <a href=${link}>${link}</a></p>`
-  })
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to,
+      subject,
+      html: `<p> Er is een nieuwe keuringsaanvraag binnengekomen voor ${type.replace('/', ' + ')}</p> <p>Bekijk de details van deze keuring via de volgende link: <a href=${link}>${link}</a></p>`
+    })
 
-  reply.send({ message: "Email sent successfully" })
+    return { message: "Email sent successfully" }
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
+  }
 })
 
 fastify.post("/notify-certificate-available", async (request, reply) => {
-  const { to, subject, location, klant, type, link } = request.body
+  try {
 
-  await transporter.sendMail({
-    from: process.env.SMTP_AUTH_USER,
-    to,
-    subject,
-    html: `
+    const { to, subject, location, klant, type, link } = request.body
+
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to,
+      subject,
+      html: `
       <p>Beste, </p>
       <p>Er is een attest beschikbaar voor de volgende keuring</p>
       <ul>
-        <li>
-          <b>Type:</b> ${type}
-        </li>
-        <li>
-          <b>Adres:</b> ${location}
-        </li>
-        <li>
-          <b>Klant:</b> ${klant}
-        </li>
+      <li>
+      <b>Type:</b> ${type}
+      </li>
+      <li>
+      <b>Adres:</b> ${location}
+      </li>
+      <li>
+      <b>Klant:</b> ${klant}
+      </li>
       </ul>
       <p>Klik op de onderstaande link om het attest te raadplegen:</p>
       <a href="${link}">${link}</a>
       <p>Indien er een attest ontbreekt, zal dit spoedig beschikbaar worden gesteld.</p>
       <p>Met vriendelijke groet,</p>
       <p>Het WoonExpertVlaanderen team</p>
-    `
-  })
+      `
+    })
+
+    return { message: "Email sent successfully" }
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
+  }
 })
 
 fastify.post("/notify-updated-date-visit", async (request, reply) => {
-  const { to, subject, location, klant, date, type } = request.body
+  try {
 
-  await transporter.sendMail({
-    from: process.env.SMTP_AUTH_USER,
-    to,
-    subject,
-    html: `<p>Beste, </p><p>De volgende keuring in ons systeem is gepland voor <b>${date}</b>. <ul><li>Type: ${type.join(" & ")}</li><li>Locatie: ${location}</li><li>Klant: ${klant}</li></ul><p>Neem contact met me op als u vragen hebt over de planning.</p>`
-  })
+    const { to, subject, location, klant, date, type } = request.body
+
+    await transporter.sendMail({
+      from: process.env.FROM_EMAIL,
+      to,
+      subject,
+      html: `<p>Beste, </p><p>De volgende keuring in ons systeem is gepland voor <b>${date}</b>. <ul><li>Type: ${type.join(" & ")}</li><li>Locatie: ${location}</li><li>Klant: ${klant}</li></ul><p>Neem contact met me op als u vragen hebt over de planning.</p>`
+    })
+
+    return { message: "Email sent successfully" }
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
+  }
 })
 
 try {
