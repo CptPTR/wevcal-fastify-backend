@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import Fastify from "fastify";
 import { google } from "googleapis";
-import nodemailer from "nodemailer";
+import { Resend } from "resend"
 
 dotenv.config()
 
@@ -27,15 +27,7 @@ const auth = new google.auth.JWT({
 
 const calendar = google.calendar({ version: "v3", auth });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_AUTH_USER,
-    pass: process.env.SMTP_AUTH_PASS
-  }
-})
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 fastify.register(cors)
 fastify.register(FastifySwagger, {
@@ -171,7 +163,7 @@ fastify.post("/send-mail", async (request, reply) => {
   try {
     const { to, subject, type, link } = request.body
 
-    await transporter.sendMail({
+    await resend.emails.send({
       from: process.env.FROM_EMAIL,
       to,
       subject,
@@ -189,7 +181,7 @@ fastify.post("/notify-certificate-available", async (request, reply) => {
 
     const { to, subject, location, klant, type, link } = request.body
 
-    await transporter.sendMail({
+    await resend.emails.send({
       from: process.env.FROM_EMAIL,
       to,
       subject,
@@ -226,7 +218,7 @@ fastify.post("/notify-updated-date-visit", async (request, reply) => {
 
     const { to, subject, location, klant, date, type } = request.body
 
-    await transporter.sendMail({
+    await resend.emails.send({
       from: process.env.FROM_EMAIL,
       to,
       subject,
