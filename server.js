@@ -99,7 +99,7 @@ fastify.post("/calendars/:username/events", async (request, reply) => {
       }
     );
 
-    return { eventId: res.data.id }
+    return res.data.id
   } catch (err) {
     return reply.code(500).send({ error: err.message });
   }
